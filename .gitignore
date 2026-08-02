@@ -7,6 +7,15 @@ __pycache__/
 raw/*
 !raw/.gitkeep
 
+# Editor / local notes
+.vscode/
+.idea/
+*.code-workspace
+.cursor/
+PLAN.md
+CLAUDE.md
+AGENTS.md
+
 # Private / local-only (не в публичный GitHub)
 trip_dashboard.html
 trip_report.xlsx

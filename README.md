@@ -33,7 +33,6 @@ raw/                       # сюда класть исходные выписк
 trip_report.xlsx
 trip_dashboard.html
 trip_dashboard_public.html
-PLAN.md
 ```
 
 ## Что умеет дашборд
