@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from collections import defaultdict
 from datetime import datetime
@@ -15,6 +16,10 @@ DATA = ROOT / "data"
 OUT = ROOT
 TEMPLATE = ROOT / "templates" / "dashboard.html"
 VENV_PY = ROOT / ".venv" / "bin" / "python"
+
+# Card last-4 / account numbers must not ship in the public dashboard.
+_RE_CARD = re.compile(r"\s*\*\d{2,}")
+_RE_ACCT = re.compile(r"(счёт\s+NBG)\s+\d+", re.IGNORECASE)
 
 
 def _ensure_venv() -> None:
@@ -45,14 +50,64 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 
+def _read_json(path: Path):
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def load() -> tuple[list, list, dict]:
-    txs = json.loads((DATA / "transactions.json").read_text(encoding="utf-8"))
-    excl = json.loads((DATA / "excluded.json").read_text(encoding="utf-8"))
-    meta = json.loads((DATA / "meta.json").read_text(encoding="utf-8"))
+    required = {
+        DATA / "transactions.json": None,  # committed
+        DATA / "excluded.json": "excluded.example.json",
+        DATA / "meta.json": "meta.example.json",
+    }
+    missing = [p for p in required if not p.is_file()]
+    if missing:
+        lines = ["Missing local data files (gitignored). From project root:"]
+        for p in missing:
+            example = required[p]
+            if example:
+                lines.append(f"  cp data/{example} {p.relative_to(ROOT)}")
+            else:
+                lines.append(f"  (restore) {p.relative_to(ROOT)}")
+        lines.append("Then re-run:  .venv/bin/python scripts/build.py")
+        print("\n".join(lines), file=sys.stderr)
+        sys.exit(1)
+    txs = _read_json(DATA / "transactions.json")
+    excl = _read_json(DATA / "excluded.json")
+    meta = _read_json(DATA / "meta.json")
     return txs, excl, meta
 
 
-def checksum(txs: list) -> dict:
+def public_src(src: str) -> str:
+    """Strip card last-4 and account numbers from a payment-source label."""
+    s = _RE_CARD.sub("", src)
+    s = _RE_ACCT.sub(r"\1", s)
+    return s.strip() or "NBG card"
+
+
+def scrub_public(txs: list, meta: dict) -> tuple[list, dict]:
+    """Copy of txs/meta safe to embed in the shareable HTML."""
+    txs_pub = [{**t, "src": public_src(t["src"])} for t in txs]
+    meta_pub = json.loads(json.dumps(meta))
+    meta_pub.pop("account_picture", None)
+    meta_pub.pop("financing", None)
+    meta_pub["sources"] = ["Revolut", "PayPal", "NBG cards"]
+    meta_pub["footer"] = (
+        "Публичная версия: без деталей банковского счёта и номеров карт. "
+        "Отменённые брони и внутренние переводы исключены из сумм."
+    )
+    cs = meta_pub.get("checksum") or {}
+    by_src = cs.get("by_source") or {}
+    merged: dict[str, float] = defaultdict(float)
+    for k, v in by_src.items():
+        merged[public_src(k)] += float(v)
+    cs["by_source"] = {k: round(v, 2) for k, v in sorted(merged.items())}
+    meta_pub["checksum"] = cs
+    return txs_pub, meta_pub
+
+
+def checksum(txs: list, travelers: int = 3) -> dict:
+    n = max(int(travelers or 3), 1)
     total = -sum(t["amount_eur"] for t in txs)
     pre = -sum(t["amount_eur"] for t in txs if t.get("pretrip"))
     shared = -sum(t["amount_eur"] for t in txs if not t.get("personal"))
@@ -66,14 +121,15 @@ def checksum(txs: list) -> dict:
         "in_trip": round(total - pre, 2),
         "shared": round(shared, 2),
         "personal": round(personal, 2),
-        "per_person": round(shared / 3, 2),
+        "per_person": round(shared / n, 2),
         "by_source": {k: round(v, 2) for k, v in sorted(by_src.items())},
         "n": len(txs),
     }
 
 
 def verify(txs: list, meta: dict) -> None:
-    cs = checksum(txs)
+    n_trav = int(meta.get("travelers") or 3)
+    cs = checksum(txs, n_trav)
     expected = meta.get("checksum", {})
     mismatches = []
     for key in ("trip_total", "pretrip", "in_trip", "shared", "personal", "per_person"):
@@ -95,29 +151,18 @@ def verify(txs: list, meta: dict) -> None:
 
 def build_html(txs: list, excl: list, meta: dict, public: bool) -> Path:
     tpl = TEMPLATE.read_text(encoding="utf-8")
+    if public:
+        txs_emb, meta_emb = scrub_public(txs, meta)
+        excl_emb: list = []
+    else:
+        txs_emb, meta_emb, excl_emb = txs, meta, excl
     html = (
-        tpl.replace("__DATA__", json.dumps(txs, ensure_ascii=False))
-        .replace("__EXCLUDED__", json.dumps(excl if not public else [], ensure_ascii=False))
-        .replace("__META__", json.dumps(meta, ensure_ascii=False))
+        tpl.replace("__DATA__", json.dumps(txs_emb, ensure_ascii=False))
+        .replace("__EXCLUDED__", json.dumps(excl_emb, ensure_ascii=False))
+        .replace("__META__", json.dumps(meta_emb, ensure_ascii=False))
         .replace("__PUBLIC__", "true" if public else "false")
     )
     if public:
-        # strip private financing numbers from embedded meta copy
-        meta_pub = json.loads(json.dumps(meta))
-        meta_pub.pop("account_picture", None)
-        meta_pub.pop("financing", None)
-        meta_pub["sources"] = ["Revolut", "PayPal", "NBG cards"]
-        meta_pub["footer"] = (
-            "Публичная версия: без деталей банковского счёта. "
-            "Отменённые брони и внутренние переводы исключены из сумм."
-        )
-        html = (
-            TEMPLATE.read_text(encoding="utf-8")
-            .replace("__DATA__", json.dumps(txs, ensure_ascii=False))
-            .replace("__EXCLUDED__", "[]")
-            .replace("__META__", json.dumps(meta_pub, ensure_ascii=False))
-            .replace("__PUBLIC__", "true")
-        )
         out = OUT / "trip_dashboard_public.html"
         out.write_text(html, encoding="utf-8")
         print(f"Wrote {out.relative_to(ROOT)} ({out.stat().st_size // 1024} KB)")
@@ -129,8 +174,7 @@ def build_html(txs: list, excl: list, meta: dict, public: bool) -> Path:
         index.write_text(html, encoding="utf-8")
         print(f"Wrote {index.relative_to(ROOT)} ({index.stat().st_size // 1024} KB)")
         return out
-    else:
-        out = OUT / "trip_dashboard.html"
+    out = OUT / "trip_dashboard.html"
     out.write_text(html, encoding="utf-8")
     print(f"Wrote {out.relative_to(ROOT)} ({out.stat().st_size // 1024} KB)")
     return out
@@ -213,15 +257,16 @@ def build_xlsx(txs: list, excl: list, meta: dict) -> Path:
     ws.cell(r, len(stages) + 2, round(by[("_total", "_total")], 2)).font = Font(bold=True)
 
     cs = meta["checksum"]
+    n_trav = int(meta.get("travelers") or 3)
     ws.cell(r + 2, 1, "Оплачено до поездки (пре-трип)")
     ws.cell(r + 2, 2, -cs["pretrip"])
     ws.cell(r + 3, 1, "Оплачено в поездке")
     ws.cell(r + 3, 2, -cs["in_trip"])
-    ws.cell(r + 4, 1, "Shared (делится на 3)")
+    ws.cell(r + 4, 1, f"Shared (делится на {n_trav})")
     ws.cell(r + 4, 2, -cs["shared"])
     ws.cell(r + 5, 1, "Личные (не делятся)")
     ws.cell(r + 5, 2, -cs["personal"])
-    ws.cell(r + 6, 1, "На человека (shared ÷ 3)")
+    ws.cell(r + 6, 1, f"На человека (shared ÷ {n_trav})")
     ws.cell(r + 6, 2, -cs["per_person"])
     ws.cell(r + 8, 1, meta.get("period", ""))
     _autosize(ws)

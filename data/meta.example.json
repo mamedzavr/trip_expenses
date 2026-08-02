@@ -1,0 +1,48 @@
+{
+  "title": "Расходы трипа: Франция → Исландия → Швейцария и Лихтенштейн",
+  "period": "20 июля – 1 августа 2026",
+  "travelers": 3,
+  "currency": "EUR",
+  "sources": [
+    "счёт NBG",
+    "NBG Mastercard",
+    "NBG Prepaid",
+    "Revolut",
+    "PayPal"
+  ],
+  "trip_start": "2026-07-20",
+  "trip_end": "2026-08-01",
+  "stages": [
+    "Франция",
+    "Исландия",
+    "Швейцария·Лихтенштейн"
+  ],
+  "stage_colors": {
+    "Франция": "#4c6ef5",
+    "Исландия": "#12b886",
+    "Швейцария·Лихтенштейн": "#e8590c"
+  },
+  "checksum": {
+    "trip_total": 0,
+    "pretrip": 0,
+    "in_trip": 0,
+    "shared": 0,
+    "personal": 0,
+    "per_person": 0,
+    "by_source": {}
+  },
+  "financing": {
+    "headline": "Как финансировался трип (заполни локально)",
+    "lines": [
+      "Скопируй этот файл в meta.json и заполни financing / account_picture локально."
+    ],
+    "cash_note": ""
+  },
+  "account_picture": {
+    "title": "Полная картина · счёт (локально)",
+    "balance_from": 0,
+    "balance_to": 0,
+    "rows": []
+  },
+  "footer": "Отменённые брони и внутренние переводы исключены из сумм — полный список во вкладке «Исключено»."
+}

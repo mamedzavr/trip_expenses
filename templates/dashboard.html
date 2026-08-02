@@ -410,7 +410,8 @@ function drawTable(d){
 }
 
 function renderAnalytics(){
-  const d = DATA.filter(t => F.pre || !t.pretrip);
+  const d = filtered();
+  const nTrav=META.travelers||3;
   const el=$('foodByStage'); el.innerHTML='';
   let foodTotal=0;
   STAGES.forEach(s=>{
@@ -418,9 +419,9 @@ function renderAnalytics(){
     if(v<=0)return;
     foodTotal+=v;
     const days=STAGE_DAYS[s]||1;
-    el.innerHTML+=`<div class="metric"><span class="n">${s}</span><span class="a">${fmt(v)} · ${fmt(v/days)}/день · ${fmt(v/days/3)}/чел</span></div>`;
+    el.innerHTML+=`<div class="metric"><span class="n">${s}</span><span class="a">${fmt(v)} · ${fmt(v/days)}/день · ${fmt(v/days/nTrav)}/чел</span></div>`;
   });
-  $('foodNote').textContent=`Итого еда: ${fmt(foodTotal)} · ${fmt(foodTotal/3)} на человека`;
+  $('foodNote').textContent=`Итого еда: ${fmt(foodTotal)} · ${fmt(foodTotal/nTrav)} на человека`;
 
   const fixed=-d.filter(t=>FIXED_CATS.has(t.category)).reduce((x,t)=>x+t.amount_eur,0);
   const variable=-d.filter(t=>!FIXED_CATS.has(t.category)).reduce((x,t)=>x+t.amount_eur,0);
@@ -478,14 +479,12 @@ function renderFinance(){
     <table style="font-size:12.5px;max-width:520px">${rows}</table>`;
 
   const fin=META.financing||{};
+  const bySrc=META.checksum?.by_source||{};
+  const srcNote=Object.entries(bySrc).map(([k,v])=>`${k} ${fmt(v)}`).join(', ');
   $('financingPanel').innerHTML=`<h3>${fin.headline||'Финансирование'}</h3>
     <div style="color:var(--mut);line-height:1.7;font-size:13px">${(fin.lines||[]).map(l=>'· '+l).join('<br>')}
     <br><br><b style="color:var(--ink)">${fin.cash_note||''}</b></div>
-    <div class="note" style="margin-top:12px">Сверка: сумма транзакций = ${fmt(META.checksum?.trip_total)} · по источникам:
-      Revolut ${fmt(META.checksum?.by_source?.['Revolut EUR'])},
-      PayPal ${fmt(META.checksum?.by_source?.PayPal)},
-      *1626 ${fmt(META.checksum?.by_source?.['NBG Mastercard *1626'])},
-      *2848 ${fmt(META.checksum?.by_source?.['NBG Prepaid *2848'])}.
+    <div class="note" style="margin-top:12px">Сверка: сумма транзакций = ${fmt(META.checksum?.trip_total)} · по источникам: ${srcNote}.
     </div>`;
 }
 

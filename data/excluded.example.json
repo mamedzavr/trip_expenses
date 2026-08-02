@@ -1,0 +1,10 @@
+[
+  {
+    "dt": "2026-07-01T12:00:00",
+    "src": "PayPal",
+    "desc": "Example cancelled booking",
+    "reason": "Отменённая бронь (пример) — не входит в суммы трипа",
+    "amount": -100.0,
+    "currency": "EUR"
+  }
+]

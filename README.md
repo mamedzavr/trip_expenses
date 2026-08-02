@@ -7,6 +7,10 @@
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+# локальные (gitignored) файлы — один раз после клона:
+cp data/meta.example.json data/meta.json
+cp data/excluded.example.json data/excluded.json
+# затем заполни meta.json / excluded.json своими данными
 .venv/bin/python scripts/build.py
 open trip_dashboard.html          # полная версия (со счётом NBG)
 open trip_dashboard_public.html   # для шаринга (без банковского блока)
@@ -16,14 +20,16 @@ open trip_dashboard_public.html   # для шаринга (без банковс
 
 ```
 data/
-  transactions.json   # источник правды по тратам трипа
-  excluded.json       # non-trip / internal / reverted
-  meta.json           # KPI-мета, этапы, financing, checksum
+  transactions.json        # источник правды по тратам трипа
+  meta.example.json        # шаблон → скопировать в meta.json
+  excluded.example.json    # шаблон → скопировать в excluded.json
+  excluded.json            # non-trip / internal / reverted (gitignore)
+  meta.json                # KPI-мета, этапы, financing, checksum (gitignore)
 templates/
-  dashboard.html      # шаблон (плейсхолдеры __DATA__ / __META__ / …)
+  dashboard.html           # шаблон (плейсхолдеры __DATA__ / __META__ / …)
 scripts/
-  build.py            # пересборка xlsx + обоих HTML + проверка checksum
-raw/                  # сюда класть исходные выписки (gitignore)
+  build.py                 # пересборка xlsx + обоих HTML + проверка checksum
+raw/                       # сюда класть исходные выписки (gitignore)
 trip_report.xlsx
 trip_dashboard.html
 trip_dashboard_public.html
@@ -32,7 +38,7 @@ PLAN.md
 
 ## Что умеет дашборд
 
-- KPI: всего, shared ÷3, личные, пре-трип / в поездке, €/день по фактическим дням
+- KPI: всего, shared ÷ travelers, личные, пре-трип / в поездке, €/день по фактическим дням
 - Фильтры: этап, категория, источник, даты, поиск, пре-трип, личные
 - Donut + дни + этапы; клик фильтрует
 - Аналитика: еда по странам, фиксированные vs переменные, топ-10
@@ -53,7 +59,7 @@ PLAN.md
 
 ## GitHub Pages
 
-Публичная версия (без банковского блока) лежит в `docs/index.html`.
+Публичная версия лежит в `docs/index.html`: без financing/account_picture и без номеров карт/счёта в `src` и `checksum.by_source`.
 
 После пуша в GitHub: **Settings → Pages → Deploy from branch → `main` / `/docs`**.
 
