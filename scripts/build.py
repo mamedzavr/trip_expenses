@@ -1,0 +1,284 @@
+#!/usr/bin/env python3
+"""Build trip_report.xlsx + trip_dashboard.html (+ public) from data/*.json."""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / "data"
+OUT = ROOT
+TEMPLATE = ROOT / "templates" / "dashboard.html"
+VENV_PY = ROOT / ".venv" / "bin" / "python"
+
+
+def _ensure_venv() -> None:
+    """Code Runner / system python3 often lack openpyxl — re-exec via .venv."""
+    if os.environ.get("TRIP_BUILD_VENV") == "1":
+        return
+    try:
+        import openpyxl  # noqa: F401
+        return
+    except ImportError:
+        pass
+    if VENV_PY.is_file():
+        os.environ["TRIP_BUILD_VENV"] = "1"
+        os.execv(str(VENV_PY), [str(VENV_PY), str(Path(__file__).resolve()), *sys.argv[1:]])
+    print(
+        "Need openpyxl. From project root:\n"
+        "  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt\n"
+        "Then re-run, or:  .venv/bin/python scripts/build.py",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
+_ensure_venv()
+
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.utils import get_column_letter
+
+
+def load() -> tuple[list, list, dict]:
+    txs = json.loads((DATA / "transactions.json").read_text(encoding="utf-8"))
+    excl = json.loads((DATA / "excluded.json").read_text(encoding="utf-8"))
+    meta = json.loads((DATA / "meta.json").read_text(encoding="utf-8"))
+    return txs, excl, meta
+
+
+def checksum(txs: list) -> dict:
+    total = -sum(t["amount_eur"] for t in txs)
+    pre = -sum(t["amount_eur"] for t in txs if t.get("pretrip"))
+    shared = -sum(t["amount_eur"] for t in txs if not t.get("personal"))
+    personal = -sum(t["amount_eur"] for t in txs if t.get("personal"))
+    by_src: dict[str, float] = defaultdict(float)
+    for t in txs:
+        by_src[t["src"]] -= t["amount_eur"]
+    return {
+        "trip_total": round(total, 2),
+        "pretrip": round(pre, 2),
+        "in_trip": round(total - pre, 2),
+        "shared": round(shared, 2),
+        "personal": round(personal, 2),
+        "per_person": round(shared / 3, 2),
+        "by_source": {k: round(v, 2) for k, v in sorted(by_src.items())},
+        "n": len(txs),
+    }
+
+
+def verify(txs: list, meta: dict) -> None:
+    cs = checksum(txs)
+    expected = meta.get("checksum", {})
+    mismatches = []
+    for key in ("trip_total", "pretrip", "in_trip", "shared", "personal", "per_person"):
+        if key in expected and round(expected[key], 2) != cs[key]:
+            mismatches.append(f"{key}: meta={expected[key]} actual={cs[key]}")
+    if mismatches:
+        print("CHECKSUM MISMATCH — updating meta.json checksum from data:")
+        for m in mismatches:
+            print(" ", m)
+        meta["checksum"] = cs
+        (DATA / "meta.json").write_text(
+            json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+    else:
+        print(f"OK checksum: {cs['trip_total']} € · {cs['n']} txs · per person {cs['per_person']} €")
+    # always refresh computed checksum in meta for embed
+    meta["checksum"] = cs
+
+
+def build_html(txs: list, excl: list, meta: dict, public: bool) -> Path:
+    tpl = TEMPLATE.read_text(encoding="utf-8")
+    html = (
+        tpl.replace("__DATA__", json.dumps(txs, ensure_ascii=False))
+        .replace("__EXCLUDED__", json.dumps(excl if not public else [], ensure_ascii=False))
+        .replace("__META__", json.dumps(meta, ensure_ascii=False))
+        .replace("__PUBLIC__", "true" if public else "false")
+    )
+    if public:
+        # strip private financing numbers from embedded meta copy
+        meta_pub = json.loads(json.dumps(meta))
+        meta_pub.pop("account_picture", None)
+        meta_pub.pop("financing", None)
+        meta_pub["sources"] = ["Revolut", "PayPal", "NBG cards"]
+        meta_pub["footer"] = (
+            "Публичная версия: без деталей банковского счёта. "
+            "Отменённые брони и внутренние переводы исключены из сумм."
+        )
+        html = (
+            TEMPLATE.read_text(encoding="utf-8")
+            .replace("__DATA__", json.dumps(txs, ensure_ascii=False))
+            .replace("__EXCLUDED__", "[]")
+            .replace("__META__", json.dumps(meta_pub, ensure_ascii=False))
+            .replace("__PUBLIC__", "true")
+        )
+        out = OUT / "trip_dashboard_public.html"
+        out.write_text(html, encoding="utf-8")
+        print(f"Wrote {out.relative_to(ROOT)} ({out.stat().st_size // 1024} KB)")
+        # GitHub Pages
+        docs = OUT / "docs"
+        docs.mkdir(exist_ok=True)
+        (docs / ".nojekyll").write_text("", encoding="utf-8")
+        index = docs / "index.html"
+        index.write_text(html, encoding="utf-8")
+        print(f"Wrote {index.relative_to(ROOT)} ({index.stat().st_size // 1024} KB)")
+        return out
+    else:
+        out = OUT / "trip_dashboard.html"
+    out.write_text(html, encoding="utf-8")
+    print(f"Wrote {out.relative_to(ROOT)} ({out.stat().st_size // 1024} KB)")
+    return out
+
+
+def _autosize(ws, widths: dict[int, int] | None = None) -> None:
+    for i, col in enumerate(ws.columns, 1):
+        if widths and i in widths:
+            ws.column_dimensions[get_column_letter(i)].width = widths[i]
+            continue
+        maxlen = 0
+        for cell in col:
+            if cell.value is not None:
+                maxlen = max(maxlen, min(len(str(cell.value)), 60))
+        ws.column_dimensions[get_column_letter(i)].width = max(10, maxlen + 2)
+
+
+def _header(ws, headers: list[str]) -> None:
+    fill = PatternFill("solid", fgColor="1C2333")
+    font = Font(color="FFFFFF", bold=True)
+    for i, h in enumerate(headers, 1):
+        cell = ws.cell(1, i, h)
+        cell.fill = fill
+        cell.font = font
+        cell.alignment = Alignment(horizontal="center")
+
+
+def build_xlsx(txs: list, excl: list, meta: dict) -> Path:
+    wb = Workbook()
+
+    # --- Транзакции ---
+    ws = wb.active
+    ws.title = "Транзакции"
+    headers = [
+        "Дата",
+        "Источник",
+        "Описание (выписка)",
+        "Подпись",
+        "Категория",
+        "Этап",
+        "Оплачено",
+        "Личное",
+        "День трипа",
+        "Сумма, €",
+    ]
+    _header(ws, headers)
+    for i, t in enumerate(sorted(txs, key=lambda x: x["dt"]), 2):
+        ws.cell(i, 1, t["dt"][:16].replace("T", " "))
+        ws.cell(i, 2, t["src"])
+        ws.cell(i, 3, t["desc"])
+        ws.cell(i, 4, t["label"])
+        ws.cell(i, 5, t["category"])
+        ws.cell(i, 6, t["stage"])
+        ws.cell(i, 7, "пре-трип" if t.get("pretrip") else "в поездке")
+        ws.cell(i, 8, "да" if t.get("personal") else "")
+        ws.cell(i, 9, t.get("trip_day") or "")
+        ws.cell(i, 10, t["amount_eur"])
+    _autosize(ws, {3: 40, 4: 50, 10: 12})
+
+    # --- Сводка ---
+    ws = wb.create_sheet("Сводка")
+    stages = meta.get("stages") or sorted({t["stage"] for t in txs})
+    _header(ws, ["Категория", *stages, "Итого"])
+    cats = sorted({t["category"] for t in txs})
+    by = defaultdict(float)
+    for t in txs:
+        by[(t["category"], t["stage"])] += t["amount_eur"]
+        by[(t["category"], "_total")] += t["amount_eur"]
+        by[("_total", t["stage"])] += t["amount_eur"]
+        by[("_total", "_total")] += t["amount_eur"]
+    for r, cat in enumerate(cats, 2):
+        ws.cell(r, 1, cat)
+        for c, st in enumerate(stages, 2):
+            ws.cell(r, c, round(by[(cat, st)], 2) or 0)
+        ws.cell(r, len(stages) + 2, round(by[(cat, "_total")], 2))
+    r = len(cats) + 2
+    ws.cell(r, 1, "ИТОГО").font = Font(bold=True)
+    for c, st in enumerate(stages, 2):
+        ws.cell(r, c, round(by[("_total", st)], 2)).font = Font(bold=True)
+    ws.cell(r, len(stages) + 2, round(by[("_total", "_total")], 2)).font = Font(bold=True)
+
+    cs = meta["checksum"]
+    ws.cell(r + 2, 1, "Оплачено до поездки (пре-трип)")
+    ws.cell(r + 2, 2, -cs["pretrip"])
+    ws.cell(r + 3, 1, "Оплачено в поездке")
+    ws.cell(r + 3, 2, -cs["in_trip"])
+    ws.cell(r + 4, 1, "Shared (делится на 3)")
+    ws.cell(r + 4, 2, -cs["shared"])
+    ws.cell(r + 5, 1, "Личные (не делятся)")
+    ws.cell(r + 5, 2, -cs["personal"])
+    ws.cell(r + 6, 1, "На человека (shared ÷ 3)")
+    ws.cell(r + 6, 2, -cs["per_person"])
+    ws.cell(r + 8, 1, meta.get("period", ""))
+    _autosize(ws)
+
+    # --- Исключено ---
+    ws = wb.create_sheet("Исключено")
+    _header(ws, ["Дата", "Источник", "Описание (выписка)", "Причина исключения", "Сумма", "Валюта"])
+    for i, e in enumerate(excl, 2):
+        ws.cell(i, 1, str(e["dt"])[:16].replace("T", " "))
+        ws.cell(i, 2, e["src"])
+        ws.cell(i, 3, e["desc"])
+        ws.cell(i, 4, e["reason"])
+        ws.cell(i, 5, e["amount"])
+        ws.cell(i, 6, e.get("currency") or "EUR")
+    _autosize(ws, {3: 40, 4: 45})
+
+    # --- Полная картина (private) ---
+    ws = wb.create_sheet("Полная картина")
+    ap = meta.get("account_picture") or {}
+    ws.cell(1, 1, ap.get("title", "Полная картина")).font = Font(bold=True, size=12)
+    ws.cell(3, 1, "Баланс на 02.05.2026")
+    ws.cell(3, 2, ap.get("balance_from"))
+    ws.cell(4, 1, "Баланс на 02.08.2026")
+    ws.cell(4, 2, ap.get("balance_to"))
+    ws.cell(6, 1, "Движения").font = Font(bold=True)
+    for i, (label, val) in enumerate(ap.get("rows") or [], 7):
+        ws.cell(i, 1, label)
+        ws.cell(i, 2, val)
+    row = 7 + len(ap.get("rows") or []) + 2
+    fin = meta.get("financing") or {}
+    ws.cell(row, 1, fin.get("headline", "")).font = Font(bold=True)
+    for j, line in enumerate(fin.get("lines") or [], 1):
+        ws.cell(row + j, 1, "· " + line)
+    ws.cell(row + len(fin.get("lines") or []) + 2, 1, fin.get("cash_note", ""))
+    _autosize(ws, {1: 70, 2: 14})
+
+    out = OUT / "trip_report.xlsx"
+    # if Excel has the file locked, write alternate then warn
+    try:
+        wb.save(out)
+    except PermissionError:
+        alt = OUT / "trip_report_built.xlsx"
+        wb.save(alt)
+        print(f"WARN: {out.name} locked — wrote {alt.name}")
+        return alt
+    print(f"Wrote {out.relative_to(ROOT)}")
+    return out
+
+
+def main() -> None:
+    txs, excl, meta = load()
+    verify(txs, meta)
+    build_html(txs, excl, meta, public=False)
+    build_html(txs, excl, meta, public=True)
+    build_xlsx(txs, excl, meta)
+    print("Done", datetime.now().isoformat(timespec="seconds"))
+
+
+if __name__ == "__main__":
+    main()

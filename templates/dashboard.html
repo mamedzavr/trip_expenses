@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<!-- Не открывай этот файл напрямую — это шаблон. Открой trip_dashboard.html (после scripts/build.py). -->
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Трип 🇫🇷→🇮🇸→🇨🇭 · Расходы · июль 2026</title>
+<style>
+:root{--bg:#f0f3f8;--card:#fff;--ink:#1a2233;--mut:#6b7486;--line:#e2e7f0;--acc:#2f5cff;--acc2:#0ca678;
+--fr:#4c6ef5;--is:#12b886;--ch:#e8590c;--pre:#845ef7;--tr:#868e96}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.5 'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);padding:20px}
+.wrap{max-width:1280px;margin:0 auto}
+h1{font-size:22px;margin-bottom:2px;letter-spacing:-.3px}
+.sub{color:var(--mut);margin-bottom:16px;font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.kpi .v{font-size:20px;font-weight:700;letter-spacing:-.3px;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--mut);font-size:11.5px;margin-top:2px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:4px 11px;cursor:pointer;user-select:none;font-size:12px;background:#fff;transition:.15s}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.chip.stage-on{background:var(--acc2);border-color:var(--acc2);color:#fff}
+input[type=search],input[type=date],select{border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;background:#fff;color:var(--ink)}
+input[type=search]{min-width:180px}
+.toggle{display:flex;align-items:center;gap:5px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.btn{border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12.5px;background:#fff;cursor:pointer;color:var(--ink)}
+.btn:hover{border-color:var(--acc);color:var(--acc)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.grid2{display:grid;grid-template-columns:320px 1fr;gap:14px;margin-bottom:14px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;margin-bottom:14px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+.charts h3,.panel h3{font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.legend{font-size:12px;display:flex;flex-direction:column;gap:4px;margin-top:8px;max-height:280px;overflow:auto}
+.legend .li{display:flex;align-items:center;gap:8px;cursor:pointer;padding:2px 0}
+.legend .li.on .nm{font-weight:600}
+.legend .sw{width:10px;height:10px;border-radius:3px;flex:none}
+.legend .nm{flex:1}
+.legend .am{font-variant-numeric:tabular-nums;color:var(--mut);white-space:nowrap}
+.legend .pct{width:42px;text-align:right;color:var(--mut);font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{position:sticky;top:0;background:var(--card);text-align:left;color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid var(--line);padding:8px 8px;cursor:pointer;white-space:nowrap;z-index:1}
+td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+tr:hover td{background:#f7f9ff}
+.amt{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.lbl{color:var(--mut);font-size:12px;margin-top:1px}
+.tag{display:inline-block;font-size:10.5px;border-radius:5px;padding:1px 6px;margin-right:3px;color:#fff}
+.t-fr{background:var(--fr)}.t-is{background:var(--is)}.t-ch{background:var(--ch)}.t-pre{background:var(--pre)}.t-tr{background:var(--tr)}.t-oth{background:#7950f2}.t-pers{background:#e03131}
+.src{font-size:11px;color:var(--mut);white-space:nowrap}
+.tbl-wrap{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px;-webkit-overflow-scrolling:touch}
+.count{color:var(--mut);font-size:12px;margin:8px 2px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.bar-row{display:flex;align-items:flex-end;gap:3px;height:150px;padding-top:8px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;min-width:0;cursor:pointer}
+.bar .b{width:100%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,#5b7cfa,#2f5cff);transition:.15s;min-height:2px}
+.bar:hover .b{filter:brightness(1.08)}
+.bar .d{font-size:9.5px;color:var(--mut);white-space:nowrap;transform:rotate(-38deg);height:24px;margin-top:4px}
+.bar .v{font-size:9.5px;color:var(--mut);white-space:nowrap}
+.footer{color:var(--mut);font-size:11.5px;margin-top:12px;line-height:1.55}
+.reset{color:var(--acc);cursor:pointer;font-size:12.5px;text-decoration:underline;margin-left:auto}
+.tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.tab{padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:13px}
+.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.metric{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px}
+.metric:last-child{border:none}
+.metric .n{color:var(--mut)}
+.metric .a{font-variant-numeric:tabular-nums;font-weight:600}
+.hbar{height:14px;background:#eef1f6;border-radius:6px;overflow:hidden;flex:1}
+.hbar>i{display:block;height:100%;border-radius:6px}
+.note{font-size:12px;color:var(--mut);margin-top:8px;line-height:1.5}
+.hidden{display:none!important}
+@media(max-width:640px){
+  body{padding:12px}
+  .kpi .v{font-size:17px}
+  th:nth-child(5),td:nth-child(5){display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1 id="pageTitle"></h1>
+<div class="sub" id="subtitle"></div>
+
+<div class="tabs" id="tabs">
+  <button class="tab on" data-view="trip">Траты трипа</button>
+  <button class="tab" data-view="analytics">Аналитика</button>
+  <button class="tab private-only" data-view="excluded">Исключено</button>
+  <button class="tab private-only" data-view="finance">Финансирование</button>
+</div>
+
+<div id="view-trip">
+  <div class="kpis" id="kpis"></div>
+
+  <div class="panel">
+    <div class="row">
+      <div class="chips" id="stageChips"></div>
+      <label class="toggle"><input type="checkbox" id="preToggle" checked> пре-трип</label>
+      <label class="toggle"><input type="checkbox" id="persToggle" checked> личные (не ÷3)</label>
+      <input type="search" id="q" placeholder="Поиск…">
+      <select id="srcSel"><option value="">Все источники</option></select>
+      <label class="toggle">с <input type="date" id="dFrom"></label>
+      <label class="toggle">по <input type="date" id="dTo"></label>
+      <button class="btn" id="exportBtn">CSV</button>
+      <span class="reset" id="reset">сбросить</span>
+    </div>
+    <div style="height:8px"></div>
+    <div class="chips" id="catChips"></div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel charts">
+      <h3>По категориям</h3>
+      <svg id="donut" viewBox="0 0 220 220" style="max-width:220px;display:block;margin:0 auto"></svg>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="panel charts">
+      <h3>Траты по дням (дата операции; settlement учитывается в trip_day)</h3>
+      <div class="bar-row" id="bars"></div>
+      <div style="height:12px"></div>
+      <h3>По этапам</h3>
+      <div id="stageBars"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 id="tblTitle">Транзакции</h3>
+    <div class="tbl-wrap">
+    <table id="tbl">
+      <thead><tr>
+        <th data-k="dt">Дата ↕</th><th data-k="label">Транзакция ↕</th><th data-k="category">Категория ↕</th><th data-k="stage">Этап ↕</th><th data-k="src">Источник ↕</th><th data-k="amount_eur" style="text-align:right">Сумма ↕</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    </div>
+    <div class="count" id="count"></div>
+  </div>
+</div>
+
+<div id="view-analytics" class="hidden">
+  <div class="grid3">
+    <div class="panel">
+      <h3>Еда (рестораны + продукты)</h3>
+      <div id="foodByStage"></div>
+      <div class="note" id="foodNote"></div>
+    </div>
+    <div class="panel">
+      <h3>Фиксированные vs переменные</h3>
+      <div id="fixedVar"></div>
+      <div class="note">Фиксированные: перелёты, жильё, аренда авто, страховка. Переменные: еда, транспорт, топливо, активности, шопинг и пр.</div>
+    </div>
+    <div class="panel">
+      <h3>Этапы · €/день</h3>
+      <div id="stagePerDay"></div>
+      <div class="note">Дни этапов: Франция 4 · Исландия 5 · Швейцария/Лихтенштейн 3 (приблизительно).</div>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>Топ-10 трат</h3>
+    <div class="tbl-wrap" style="max-height:360px">
+      <table id="topTbl"><thead><tr><th>Дата</th><th>Транзакция</th><th>Категория</th><th style="text-align:right">Сумма</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<div id="view-excluded" class="hidden">
+  <div class="panel">
+    <div class="row" style="margin-bottom:10px">
+      <input type="search" id="eq" placeholder="Поиск в исключённых…">
+      <select id="ereason"><option value="">Все причины</option></select>
+      <span class="count" id="ecount" style="margin:0"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table id="etbl">
+        <thead><tr><th>Дата</th><th>Источник</th><th>Описание</th><th>Причина</th><th style="text-align:right">Сумма</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="view-finance" class="hidden private-only">
+  <div class="panel" id="accountPanel"></div>
+  <div class="panel" id="financingPanel"></div>
+</div>
+
+<div class="footer" id="footer"></div>
+</div>
+
+<script>
+const DATA = __DATA__;
+const EXCLUDED = __EXCLUDED__;
+const META = __META__;
+const IS_PUBLIC = __PUBLIC__;
+
+const $ = (id) => document.getElementById(id);
+
+const FIXED_CATS = new Set(['✈️ Перелёты','🏨 Жильё','🚗 Аренда авто','🛡️ Страховка']);
+const FOOD_CATS = new Set(['🍽️ Рестораны и кафе','🛒 Продукты']);
+const STAGE_DAYS = {'Франция':4,'Исландия':5,'Швейцария·Лихтенштейн':3};
+const STAG = {'Франция':'t-fr','Исландия':'t-is','Швейцария·Лихтенштейн':'t-ch'};
+const CATCOLORS = ['#2f5cff','#12b886','#e8590c','#845ef7','#fab005','#15aabf','#e64980','#40c057','#fd7e14','#7950f2','#868e96','#1098ad'];
+
+const STAGES = META.stages || [...new Set(DATA.map(t=>t.stage))];
+const SCOLOR = META.stage_colors || {};
+const cats = [...new Set(DATA.map(t=>t.category))].sort((a,b)=>catSum(DATA,a)-catSum(DATA,b));
+function catSum(arr,cat){return arr.filter(t=>t.category===cat).reduce((s,t)=>s+t.amount_eur,0)}
+const CC = {}; cats.forEach((c,i)=>CC[c]=CATCOLORS[i%CATCOLORS.length]);
+const fmt = n => (n||0).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';
+const fmt0 = n => Math.round(n||0).toLocaleString('ru-RU')+' €';
+
+let F = {stages:new Set(), cats:new Set(), pre:true, personal:true, q:'', src:'', dFrom:'', dTo:'', sortK:'dt', sortD:1};
+let view = 'trip';
+
+$('pageTitle').textContent = META.title;
+$('subtitle').textContent = `${META.period} · ${META.travelers} путешественника · суммы в ${META.currency} по курсу списания · источники: ${(META.sources||[]).join(', ')}`;
+$('footer').textContent = META.footer || '';
+
+if (IS_PUBLIC) {
+  document.querySelectorAll('.private-only').forEach(el=>el.classList.add('hidden'));
+}
+
+const srcSel = $('srcSel');
+const srcs=[...new Set(DATA.map(t=>t.src))];
+srcs.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;srcSel.appendChild(o)});
+
+const ereason = $('ereason');
+const reasons=[...new Set(EXCLUDED.map(e=>e.reason))].sort();
+reasons.forEach(r=>{const o=document.createElement('option');o.value=r;o.textContent=r.length>60?r.slice(0,57)+'…':r;ereason.appendChild(o)});
+
+document.querySelectorAll('.tab').forEach(tab=>{
+  if(IS_PUBLIC && tab.classList.contains('private-only')) return;
+  tab.onclick=()=>{
+    view=tab.dataset.view;
+    document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.view===view));
+    ['trip','analytics','excluded','finance'].forEach(v=>{
+      const el=$('view-'+v);
+      if(el) el.classList.toggle('hidden', v!==view);
+    });
+    if(view==='analytics') renderAnalytics();
+    if(view==='excluded') renderExcluded();
+    if(view==='finance') renderFinance();
+  };
+});
+
+function dayKey(t){ return (t.trip_day || t.dt.slice(0,10)); }
+
+function filtered(){
+  return DATA.filter(t=>{
+    if(!F.pre && t.pretrip) return false;
+    if(!F.personal && t.personal) return false;
+    if(F.stages.size && !F.stages.has(t.stage)) return false;
+    if(F.cats.size && !F.cats.has(t.category)) return false;
+    if(F.src && t.src!==F.src) return false;
+    const d = t.dt.slice(0,10);
+    if(F.dFrom && d < F.dFrom) return false;
+    if(F.dTo && d > F.dTo) return false;
+    if(F.q){
+      const q=F.q.toLowerCase();
+      if(!(t.desc+' '+t.label+' '+t.category+' '+t.stage).toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function uniqueDays(d){
+  const s=new Set(d.map(t=>dayKey(t)));
+  return Math.max(s.size,1);
+}
+
+function render(){
+  const d=filtered();
+  const total=-d.reduce((s,t)=>s+t.amount_eur,0);
+  const pre=-d.filter(t=>t.pretrip).reduce((s,t)=>s+t.amount_eur,0);
+  const shared=-d.filter(t=>!t.personal).reduce((s,t)=>s+t.amount_eur,0);
+  const personal=-d.filter(t=>t.personal).reduce((s,t)=>s+t.amount_eur,0);
+  const days=uniqueDays(d.filter(t=>!t.pretrip));
+  const nTrav=META.travelers||3;
+
+  $('kpis').innerHTML=`
+    <div class="kpi"><div class="v">${fmt(total)}</div><div class="l">всего по выборке</div></div>
+    <div class="kpi"><div class="v">${fmt(shared/nTrav)}</div><div class="l">на человека (shared ÷${nTrav})</div></div>
+    <div class="kpi"><div class="v">${fmt(personal)}</div><div class="l">личные (не делятся)</div></div>
+    <div class="kpi"><div class="v">${fmt(pre)}</div><div class="l">оплачено до поездки</div></div>
+    <div class="kpi"><div class="v">${fmt(total-pre)}</div><div class="l">оплачено в поездке</div></div>
+    <div class="kpi"><div class="v">${fmt((total-pre)/days)}</div><div class="l">в день (${days} дн. с тратами)</div></div>
+    <div class="kpi"><div class="v">${d.length}</div><div class="l">транзакций</div></div>`;
+
+  const stageChips=$('stageChips'); stageChips.innerHTML='';
+  STAGES.forEach(s=>{
+    const el=document.createElement('span');
+    el.className='chip'+(F.stages.has(s)?' stage-on':'');
+    el.textContent=s;
+    el.onclick=()=>{F.stages.has(s)?F.stages.delete(s):F.stages.add(s);render()};
+    stageChips.appendChild(el);
+  });
+  const catChips=$('catChips'); catChips.innerHTML='';
+  cats.forEach(c=>{
+    const el=document.createElement('span');
+    el.className='chip'+(F.cats.has(c)?' on':'');
+    el.textContent=c;
+    el.onclick=()=>{F.cats.has(c)?F.cats.delete(c):F.cats.add(c);render()};
+    catChips.appendChild(el);
+  });
+
+  drawDonut(d); drawBars(d); drawStageBars(d); drawTable(d);
+}
+
+function drawDonut(d){
+  const svg=$('donut'); svg.innerHTML='';
+  const tot=-d.reduce((s,t)=>s+t.amount_eur,0)||1;
+  let a0=-Math.PI/2;
+  const cx=110,cy=110,R=95,r=58;
+  cats.forEach(c=>{
+    const v=-d.filter(t=>t.category===c).reduce((s,t)=>s+t.amount_eur,0);
+    if(v<=0)return;
+    const a1=a0+2*Math.PI*v/tot;
+    const large=(a1-a0)>Math.PI?1:0;
+    const p=`M ${cx+R*Math.cos(a0)} ${cy+R*Math.sin(a0)} A ${R} ${R} 0 ${large} 1 ${cx+R*Math.cos(a1)} ${cy+R*Math.sin(a1)} L ${cx+r*Math.cos(a1)} ${cy+r*Math.sin(a1)} A ${r} ${r} 0 ${large} 0 ${cx+r*Math.cos(a0)} ${cy+r*Math.sin(a0)} Z`;
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',p); path.setAttribute('fill',CC[c]);
+    path.style.cursor='pointer';
+    path.appendChild(document.createElementNS('http://www.w3.org/2000/svg','title')).textContent=`${c}: ${fmt(v)} (${(100*v/tot).toFixed(1)}%)`;
+    path.onclick=()=>{F.cats.has(c)?F.cats.delete(c):F.cats.add(c);render()};
+    svg.appendChild(path); a0=a1;
+  });
+  const t1=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t1.setAttribute('x',cx);t1.setAttribute('y',cy-2);t1.setAttribute('text-anchor','middle');
+  t1.setAttribute('font-size','17');t1.setAttribute('font-weight','700');t1.textContent=fmt0(tot).replace(' €','');
+  const t2=document.createElementNS('http://www.w3.org/2000/svg','text');
+  t2.setAttribute('x',cx);t2.setAttribute('y',cy+16);t2.setAttribute('text-anchor','middle');
+  t2.setAttribute('font-size','10');t2.setAttribute('fill','#6b7486');t2.textContent='€ итого';
+  svg.appendChild(t1);svg.appendChild(t2);
+  const legend=$('legend'); legend.innerHTML='';
+  cats.slice().reverse().forEach(c=>{
+    const v=-d.filter(t=>t.category===c).reduce((s,t)=>s+t.amount_eur,0);
+    if(v<=0)return;
+    const li=document.createElement('div');li.className='li'+(F.cats.has(c)?' on':'');
+    li.innerHTML=`<span class="sw" style="background:${CC[c]}"></span><span class="nm">${c}</span><span class="pct">${(100*v/tot).toFixed(0)}%</span><span class="am">${fmt(v)}</span>`;
+    li.onclick=()=>{F.cats.has(c)?F.cats.delete(c):F.cats.add(c);render()};
+    legend.appendChild(li);
+  });
+}
+
+function drawBars(d){
+  const el=$('bars'); el.innerHTML='';
+  const inTrip=d.filter(t=>!t.pretrip);
+  const byDay={};
+  inTrip.forEach(t=>{const k=dayKey(t); byDay[k]=(byDay[k]||0)-t.amount_eur});
+  const days=[];
+  const start=new Date((META.trip_start||'2026-07-20')+'T12:00:00');
+  const end=new Date((META.trip_end||'2026-08-01')+'T12:00:00');
+  for(let dd=new Date(start);dd<=end;dd.setDate(dd.getDate()+1)){
+    const y=dd.getFullYear(),m=String(dd.getMonth()+1).padStart(2,'0'),da=String(dd.getDate()).padStart(2,'0');
+    days.push(`${y}-${m}-${da}`);
+  }
+  const mx=Math.max(...days.map(k=>byDay[k]||0),1);
+  days.forEach(k=>{
+    const v=byDay[k]||0;
+    const b=document.createElement('div');b.className='bar';
+    b.innerHTML=`<div class="v">${v?Math.round(v):''}</div><div class="b" style="height:${Math.max(2,100*v/mx)}px" title="${k}: ${fmt(v)}"></div><div class="d">${k.slice(8,10)}.${k.slice(5,7)}</div>`;
+    b.onclick=()=>{F.dFrom=k;F.dTo=k;$('dFrom').value=k;$('dTo').value=k;render()};
+    el.appendChild(b);
+  });
+}
+
+function drawStageBars(d){
+  const el=$('stageBars'); el.innerHTML='';
+  const tot=-d.reduce((s,t)=>s+t.amount_eur,0)||1;
+  STAGES.forEach(s=>{
+    const v=-d.filter(t=>t.stage===s).reduce((x,t)=>x+t.amount_eur,0);
+    if(v<=0)return;
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:10px;margin-bottom:6px;font-size:12.5px;cursor:pointer';
+    row.innerHTML=`<span style="width:160px;flex:none">${s}</span>
+      <div class="hbar"><i style="width:${100*v/tot}%;background:${SCOLOR[s]||'#868e96'}"></i></div>
+      <span style="width:100px;text-align:right;font-variant-numeric:tabular-nums">${fmt(v)}</span>
+      <span style="width:40px;text-align:right;color:var(--mut)">${(100*v/tot).toFixed(0)}%</span>`;
+    row.onclick=()=>{F.stages.has(s)?F.stages.delete(s):F.stages.add(s);render()};
+    el.appendChild(row);
+  });
+}
+
+function cleanDesc(d){
+  return d.replace(/ΑΓΟΡΑ( \(ΕΞΟΥΣΙΟΔΟΤΗΣΗ\))? - |3D SECURE E-COMMERCE ΑΓΟΡΑ - |E-COMMERCE ΑΓΟΡΑ - /g,'');
+}
+
+function drawTable(d){
+  const tb=document.querySelector('#tbl tbody'); tb.innerHTML='';
+  const s=[...d].sort((a,b)=>{
+    let x=a[F.sortK],y=b[F.sortK];
+    if(F.sortK==='amount_eur') return F.sortD*(x-y);
+    if(typeof x==='string'){x=x||'';y=y||'';return F.sortD*x.localeCompare(y,'ru')}
+    return F.sortD*(x-y);
+  });
+  s.forEach(t=>{
+    const tr=document.createElement('tr');
+    const time = t.time_unknown ? '<div class="lbl">время неизв.</div>' : (t.dt.length>10?`<div class="lbl">${t.dt.slice(11,16)}</div>`:'');
+    const tripDay = t.trip_day ? `<div class="lbl">день трипа: ${t.trip_day.split('-').reverse().join('.')}</div>` : '';
+    tr.innerHTML=`<td style="white-space:nowrap">${t.dt.slice(0,10).split('-').reverse().join('.')}${time}${tripDay}</td>
+      <td><b>${cleanDesc(t.desc)}</b><div class="lbl">${t.label}</div></td>
+      <td>${t.category}</td>
+      <td><span class="tag ${STAG[t.stage]||'t-oth'}">${t.stage||'Общее'}</span>${t.pretrip?'<span class="tag t-pre">пре-трип</span>':''}${t.personal?'<span class="tag t-pers">личное</span>':''}</td>
+      <td class="src">${t.src}</td>
+      <td class="amt">${fmt(-t.amount_eur)}</td>`;
+    tb.appendChild(tr);
+  });
+  const tot=-d.reduce((x,t)=>x+t.amount_eur,0);
+  $('count').innerHTML=`<span>${d.length} транзакций · ${fmt(tot)}</span><span>checksum: ${fmt(META.checksum?.trip_total||0)} (полный отчёт)</span>`;
+}
+
+function renderAnalytics(){
+  const d = DATA.filter(t => F.pre || !t.pretrip);
+  const el=$('foodByStage'); el.innerHTML='';
+  let foodTotal=0;
+  STAGES.forEach(s=>{
+    const v=-d.filter(t=>t.stage===s && FOOD_CATS.has(t.category)).reduce((x,t)=>x+t.amount_eur,0);
+    if(v<=0)return;
+    foodTotal+=v;
+    const days=STAGE_DAYS[s]||1;
+    el.innerHTML+=`<div class="metric"><span class="n">${s}</span><span class="a">${fmt(v)} · ${fmt(v/days)}/день · ${fmt(v/days/3)}/чел</span></div>`;
+  });
+  $('foodNote').textContent=`Итого еда: ${fmt(foodTotal)} · ${fmt(foodTotal/3)} на человека`;
+
+  const fixed=-d.filter(t=>FIXED_CATS.has(t.category)).reduce((x,t)=>x+t.amount_eur,0);
+  const variable=-d.filter(t=>!FIXED_CATS.has(t.category)).reduce((x,t)=>x+t.amount_eur,0);
+  const tot=fixed+variable||1;
+  $('fixedVar').innerHTML=`
+    <div class="metric"><span class="n">Фиксированные</span><span class="a">${fmt(fixed)} (${(100*fixed/tot).toFixed(0)}%)</span></div>
+    <div class="hbar" style="margin:6px 0 12px"><i style="width:${100*fixed/tot}%;background:var(--acc)"></i></div>
+    <div class="metric"><span class="n">Переменные</span><span class="a">${fmt(variable)} (${(100*variable/tot).toFixed(0)}%)</span></div>
+    <div class="hbar" style="margin:6px 0"><i style="width:${100*variable/tot}%;background:var(--acc2)"></i></div>`;
+
+  const spd=$('stagePerDay'); spd.innerHTML='';
+  STAGES.forEach(s=>{
+    const v=-d.filter(t=>t.stage===s).reduce((x,t)=>x+t.amount_eur,0);
+    if(v<=0)return;
+    const days=STAGE_DAYS[s]||1;
+    spd.innerHTML+=`<div class="metric"><span class="n">${s} (${days} дн.)</span><span class="a">${fmt(v)} · ${fmt(v/days)}/день</span></div>`;
+  });
+
+  const top=[...d].sort((a,b)=>a.amount_eur-b.amount_eur).slice(0,10);
+  const tb=document.querySelector('#topTbl tbody'); tb.innerHTML='';
+  top.forEach(t=>{
+    tb.innerHTML+=`<tr><td>${t.dt.slice(0,10).split('-').reverse().join('.')}</td><td><b>${cleanDesc(t.desc)}</b><div class="lbl">${t.label}</div></td><td>${t.category}</td><td class="amt">${fmt(-t.amount_eur)}</td></tr>`;
+  });
+}
+
+function renderExcluded(){
+  const q=(($('eq')&&$('eq').value)||'').toLowerCase();
+  const r=ereason.value;
+  const rows=EXCLUDED.filter(e=>{
+    if(r && e.reason!==r) return false;
+    if(q && !(e.desc+' '+e.reason+' '+e.src).toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const tb=document.querySelector('#etbl tbody'); tb.innerHTML='';
+  const show=rows.slice(0,500);
+  show.forEach(e=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="white-space:nowrap">${String(e.dt).slice(0,10).split('-').reverse().join('.')}</td>
+      <td class="src">${e.src}</td><td>${e.desc}</td><td class="lbl">${e.reason}</td>
+      <td class="amt">${e.amount.toLocaleString('ru-RU',{minimumFractionDigits:2})} ${e.currency||'EUR'}</td>`;
+    tb.appendChild(tr);
+  });
+  $('ecount').textContent=`${rows.length} из ${EXCLUDED.length}`+(rows.length>500?' (показаны первые 500)':'');
+}
+
+function renderFinance(){
+  if(IS_PUBLIC) return;
+  const ap=META.account_picture||{};
+  const rows=(ap.rows||[]).map(([l,v])=>{
+    const color=v>=0?'var(--acc2)':'inherit';
+    return `<tr><td style="border:none;padding:3px 6px">${l}</td><td style="border:none;padding:3px 6px;text-align:right;font-variant-numeric:tabular-nums;color:${color}">${v>=0?'+':''}${fmt(v).replace(' €','')}</td></tr>`;
+  }).join('');
+  $('accountPanel').innerHTML=`<h3>${ap.title||'Счёт'}</h3>
+    <div style="font-weight:700;margin-bottom:8px">Баланс: ${fmt(ap.balance_from)} → <span style="color:var(--acc2)">${fmt(ap.balance_to)}</span></div>
+    <table style="font-size:12.5px;max-width:520px">${rows}</table>`;
+
+  const fin=META.financing||{};
+  $('financingPanel').innerHTML=`<h3>${fin.headline||'Финансирование'}</h3>
+    <div style="color:var(--mut);line-height:1.7;font-size:13px">${(fin.lines||[]).map(l=>'· '+l).join('<br>')}
+    <br><br><b style="color:var(--ink)">${fin.cash_note||''}</b></div>
+    <div class="note" style="margin-top:12px">Сверка: сумма транзакций = ${fmt(META.checksum?.trip_total)} · по источникам:
+      Revolut ${fmt(META.checksum?.by_source?.['Revolut EUR'])},
+      PayPal ${fmt(META.checksum?.by_source?.PayPal)},
+      *1626 ${fmt(META.checksum?.by_source?.['NBG Mastercard *1626'])},
+      *2848 ${fmt(META.checksum?.by_source?.['NBG Prepaid *2848'])}.
+    </div>`;
+}
+
+function exportCsv(){
+  const d=filtered();
+  const headers=['dt','src','desc','label','category','stage','pretrip','personal','amount_eur','trip_day'];
+  const lines=[headers.join(',')];
+  d.forEach(t=>{
+    lines.push(headers.map(h=>{
+      let v=t[h];
+      if(v==null) v='';
+      v=String(v).replace(/"/g,'""');
+      return /[",\n]/.test(v)?`"${v}"`:v;
+    }).join(','));
+  });
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='trip_expenses_filtered.csv';
+  a.click();
+}
+
+document.querySelectorAll('#tbl th').forEach(th=>th.onclick=()=>{
+  const k=th.dataset.k; if(!k)return;
+  if(F.sortK===k)F.sortD*=-1; else {F.sortK=k;F.sortD=1;}
+  render();
+});
+$('q').oninput=e=>{F.q=e.target.value;render()};
+srcSel.onchange=e=>{F.src=e.target.value;render()};
+$('preToggle').onchange=e=>{F.pre=e.target.checked;render()};
+$('persToggle').onchange=e=>{F.personal=e.target.checked;render()};
+$('dFrom').onchange=e=>{F.dFrom=e.target.value;render()};
+$('dTo').onchange=e=>{F.dTo=e.target.value;render()};
+$('exportBtn').onclick=exportCsv;
+$('eq').oninput=()=>renderExcluded();
+ereason.onchange=()=>renderExcluded();
+$('reset').onclick=()=>{
+  F={stages:new Set(),cats:new Set(),pre:true,personal:true,q:'',src:'',dFrom:'',dTo:'',sortK:'dt',sortD:1};
+  $('q').value='';srcSel.value='';$('preToggle').checked=true;$('persToggle').checked=true;$('dFrom').value='';$('dTo').value='';
+  render();
+};
+try {
+  render();
+} catch (err) {
+  console.error(err);
+  document.body.insertAdjacentHTML('afterbegin',
+    '<div style="background:#fee;color:#900;padding:12px;margin:12px;border-radius:8px;font-family:monospace">Ошибка дашборда: '+String(err)+'</div>');
+}
+</script>
+</body>
+</html>

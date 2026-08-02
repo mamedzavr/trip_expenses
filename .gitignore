@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+.~lock.*
+~$*
+raw/*
+!raw/.gitkeep
+
+# Private / local-only (не в публичный GitHub)
+trip_dashboard.html
+trip_report.xlsx
+trip_report_built.xlsx
+data/excluded.json
+data/meta.json
